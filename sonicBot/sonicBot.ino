@@ -5,11 +5,12 @@
 #include <ESP8266HTTPClient.h>
 #include <ArduinoOTA.h>
 #include <Ticker.h>  //Ticker Library for timer Interrupt
+#include <Servo.h>
 
 //Defines for H bridge
 #define enA 4 //D2
-#define in1 0 //D3   
-#define in2 2 //D4   
+#define in1 0 //D3
+#define in2 2 //D4
 #define in3 16 //D0
 #define in4 D8 //S3
 #define enB 5 //D1
@@ -19,11 +20,18 @@
 //uncomment line to enable OTA update
 #define OTAUpdate
 
+Servo weaponservo;
+
 //Defines for US
 int trigger = D5;
 int echo = D6;
 long duration = 0;
 long distance = 0;
+
+long previousMillis = 0;
+unsigned long currentMillis = 0;
+int weapon_rearm_time = 200; // ms
+bool weapon = true;
 
 //ChangeMe
 String botName = "myBot";
@@ -146,9 +154,10 @@ void setup()
   digitalWrite(in3, LOW);
   digitalWrite(in4, LOW);
   //Init US
-  pinMode(trigger, OUTPUT);
+  //pinMode(trigger, OUTPUT);
   pinMode(echo, INPUT);
 
+  weaponservo.attach(13);
 
 
   //Initialize File System
@@ -227,6 +236,9 @@ void setup()
   //Function to execute if Button on Homepage was pressed
   server.on("/button/", HTTP_GET, [](AsyncWebServerRequest * request) {
     Serial.println("Button pressed");
+    weapon = true;
+    previousMillis = millis();
+    Fire();
     request -> send(200);
   });
 
@@ -277,9 +289,23 @@ void setup()
   Serial.println("Setup Finished");
 }
 
+void Fire(){
+      weaponservo.write(180);
+      currentMillis = millis();
+
+      if(currentMillis - previousMillis > weapon_rearm_time) {
+          weaponservo.write(0);
+          weapon = false;
+          previousMillis = currentMillis;
+      }
+}
 
 void loop()
-{
+{ 
+  if(weapon){
+    Serial.println("FIRE!");
+    Fire();
+  }
   if (manualMode) {
 
     if (deviceIsConnected) {
